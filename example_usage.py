@@ -34,7 +34,8 @@ def process_plan(image_path):
         return task_id
         
     except requests.exceptions.HTTPError as e:
-        print(f"API Error: {e.response.text}")
+        print(f"API HTTP Error: {e.response.status_code}")
+        print(f"Response Body: {e.response.text}")
         sys.exit(1)
     except Exception as e:
         print(f"Error: {e}")

@@ -20,6 +20,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Global Exception Handler for debugging
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    error_details = traceback.format_exc()
+    print(f"CRITICAL: Unhandled exception: {error_details}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {str(exc)}", "trace": str(exc)},
+    )
+
 # Setup directories
 UPLOAD_DIR = "app/static/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
