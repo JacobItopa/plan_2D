@@ -1,10 +1,12 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Request
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import shutil
 import os
 import uuid
+import time
+import asyncio
 from app.services.nanobanana import NanoBananaAPI
 
 app = FastAPI(title="NanoBanana Plan Scaler")
@@ -30,8 +32,28 @@ nanobanana = NanoBananaAPI()
 
 DEFAULT_PROMPT = "I want you to clean this plan and also dimension it and label it and make sure the wall thickness are up to standard. Edit the plan where necessary to make sure it meets the standard"
 
+# --- Background Task for File Cleanup ---
+def cleanup_old_files(directory: str, max_age_seconds: int = 3600):
+    """Deletes files older than max_age_seconds to prevent disk fill-up."""
+    try:
+        now = time.time()
+        for filename in os.listdir(directory):
+            file_path = os.path.join(directory, filename)
+            # Skip .gitkeep or directories
+            if not os.path.isfile(file_path) or filename.startswith('.'):
+                continue
+                
+            if os.stat(file_path).st_mtime < now - max_age_seconds:
+                os.remove(file_path)
+                print(f"Cleanup: Deleted old file {filename}")
+    except Exception as e:
+        print(f"Error during file cleanup: {e}")
+
 @app.post("/api/process")
-async def process_plan(request: Request, file: UploadFile = File(...)):
+async def process_plan(request: Request, background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    # 0. Trigger cleanup occasionally
+    background_tasks.add_task(cleanup_old_files, UPLOAD_DIR)
+
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
 
@@ -40,53 +62,51 @@ async def process_plan(request: Request, file: UploadFile = File(...)):
     filename = f"{uuid.uuid4()}.{file_ext}"
     file_path = os.path.join(UPLOAD_DIR, filename)
     
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        print(f"ERROR: Failed to save uploaded file: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save file on server")
     
     # 2. Construct URL
-    # IMPORTANT: This URL needs to be accessible by NanoBanana servers.
-    # If running locally without tunneling (like ngrok), this might fail if NanoBanana tries to fetch 'localhost'.
+    # FIX: Render terminates SSL, so request.base_url might say 'http'. 
+    # We force 'https' if the header 'x-forwarded-proto' is 'https', or just assume https for production.
+    # A safe generic way for Render/Proxies:
+    forwarded_proto = request.headers.get("x-forwarded-proto")
     base_url = str(request.base_url).rstrip("/")
+    
+    if forwarded_proto == "https" and base_url.startswith("http://"):
+        base_url = base_url.replace("http://", "https://", 1)
+    
     image_url = f"{base_url}/static/uploads/{filename}"
     
-    print(f"Image uploaded to: {image_url}")
+    print(f"DEBUG: Process Request. Image URL generated: {image_url}")
     
     try:
-        # 3. Call NanoBanana API
-        # Only 'IMAGETOIMAGE' or similar type supports input images. 
-        # The user example used 'TEXTTOIAMGE' (sic) but passed 'imageUrls'. 
-        # We will assume 'IMAGETOIMAGE' is likely intended if we pass an image, 
-        # or we stick to the user's example which defaults to 'TEXTTOIAMGE'.
-        # Let's try to infer type or stick to user provided logic handling.
-        # User code: data['type'] = options.get('type', 'TEXTTOIAMGE')
-        # If we provide an image, it usually implies image-to-image. 
-        # However, I will check if I should explicitely set it. 
-        # For now I will set it to 'IMAGETOIMAGE' as a safe bet for plan editing, 
-        # but if the user code had 'TEXTTOIAMGE' as default, I'll allow override or default.
-        # Actually, let's look at the prompt: "clean *this* plan". It implies input image.
-        
-        task_id = nanobanana.generate_image(
+        # 3. Call NanoBanana API (Async)
+        task_id = await nanobanana.generate_image(
             prompt=DEFAULT_PROMPT,
             imageUrls=[image_url],
-            type="TEXTTOIAMGE" # Reverting to user-provided type (typo included as it might be required)
+            type="TEXTTOIAMGE" 
         )
         
         return {"taskId": task_id, "status": "processing", "originalImageUrl": image_url}
         
     except Exception as e:
-        print(f"Error calling NanoBanana: {e}")
-        # If it's a URL reachability issue, we might want to inform the user.
+        print(f"CRITICAL ERROR calling NanoBanana: {e}")
+        # Return 500 but with detail so we can see it in client response
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/status/{task_id}")
 async def get_status(task_id: str):
     try:
-        status = nanobanana.get_task_status(task_id)
+        status = await nanobanana.get_task_status(task_id)
         return status
     except Exception as e:
+        print(f"Error checking status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
 async def read_root():
-    # Serve index.html
     return JSONResponse(content={"message": "Visit /static/index.html to use the app"})

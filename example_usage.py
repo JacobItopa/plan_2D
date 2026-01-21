@@ -7,8 +7,8 @@ import sys
 # This script demonstrates how to call the endpoints of the NanoBanana Plan Scaler service.
 
 # 1. Configuration
-API_URL = "http://localhost:8000"  # Adjust if running on a different host
-IMAGE_PATH = "sample_plan.jpg"     # Path to your local image file
+API_URL = "https://plan-2d.onrender.com"  # Adjust if running on a different host
+IMAGE_PATH = "WhatsApp Image 2025-09-08 at 12.03.28.jpeg"     # Path to your local image file
 
 def process_plan(image_path):
     print(f"Uploading {image_path}...")
