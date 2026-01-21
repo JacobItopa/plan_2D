@@ -65,8 +65,16 @@ async def process_plan(request: Request, background_tasks: BackgroundTasks, file
     # 0. Trigger cleanup occasionally
     background_tasks.add_task(cleanup_old_files, UPLOAD_DIR)
 
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File must be an image")
+    # Sanitize content_type
+    content_type = file.content_type or "application/octet-stream"
+
+    if not content_type.startswith("image/") and not content_type == "application/octet-stream":
+        # We might be lenient here or check filename extension as fallback
+        pass 
+    
+    # Strict check if we want, but let's be safe against None
+    if file.content_type and not file.content_type.startswith("image/"):
+         raise HTTPException(status_code=400, detail=f"File must be an image, got {file.content_type}")
 
     # 1. Save file locally
     file_ext = file.filename.split(".")[-1]
