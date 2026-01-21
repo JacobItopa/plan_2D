@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: nanobanana-plan-scaler
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: NANOBANANA_API_KEY
+        sync: false
+        # You will need to add this manually in the Render dashboard or allow it to be sync'd if safe.
+        # For security, we usually don't commit keys in the repo, but 'sync: false' implies it's a placeholder.
