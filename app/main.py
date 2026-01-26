@@ -41,7 +41,7 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 # NanoBanana Client
 nanobanana = NanoBananaAPI()
 
-DEFAULT_PROMPT = "You an architect with years of experience. Critic the plan, edit the plan where necessary and make sure it is up to standard. Ensure the walls are up to standard and always maintain the color. Dimension and label the plan."
+DEFAULT_PROMPT = "You are an architect with years of experience. Critic the plan, edit the plan where necessary and make sure it is up to standard. Ensure the walls are up to standard and always maintain the color. Dimension and label the plan. Always ensure there is an entrance at the living room."
 
 # --- Background Task for File Cleanup ---
 def cleanup_old_files(directory: str, max_age_seconds: int = 3600):
