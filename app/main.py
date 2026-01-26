@@ -41,7 +41,7 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 # NanoBanana Client
 nanobanana = NanoBananaAPI()
 
-DEFAULT_PROMPT = "I want you to clean this plan and also dimension it and label it and make sure the wall thickness are up to standard. Edit the plan where necessary to make sure it meets the standard"
+DEFAULT_PROMPT = "You an architect with years of experience. Critic the plan, edit the plan where necessary and make sure it is up to standard. Ensure the walls are up to standard and always maintain the color. Dimension and label the plan."
 
 # --- Background Task for File Cleanup ---
 def cleanup_old_files(directory: str, max_age_seconds: int = 3600):
@@ -107,7 +107,7 @@ async def process_plan(request: Request, background_tasks: BackgroundTasks, file
         task_id = await nanobanana.generate_image(
             prompt=DEFAULT_PROMPT,
             imageUrls=[image_url],
-            type="TEXTTOIAMGE" 
+            type="IMAGETOIMAGE" 
         )
         
         return {"taskId": task_id, "status": "processing", "originalImageUrl": image_url}
