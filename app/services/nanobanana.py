@@ -22,7 +22,7 @@ class NanoBananaAPI:
     async def generate_image(self, prompt, **options):
         data = {
             'prompt': prompt,
-            'type': options.get('type', 'IMAGETOIMAGE'),
+            'type': options.get('type', 'TEXTTOIAMGE'),
             'numImages': options.get('numImages', 1),
             'callBackUrl': options.get('callBackUrl'),
             'watermark': options.get('watermark')

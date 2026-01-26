@@ -107,7 +107,7 @@ async def process_plan(request: Request, background_tasks: BackgroundTasks, file
         task_id = await nanobanana.generate_image(
             prompt=DEFAULT_PROMPT,
             imageUrls=[image_url],
-            type="IMAGETOIMAGE" 
+            type="TEXTTOIAMGE" 
         )
         
         return {"taskId": task_id, "status": "processing", "originalImageUrl": image_url}
